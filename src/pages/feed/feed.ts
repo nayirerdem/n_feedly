@@ -1,7 +1,8 @@
 import { Component } from '@angular/core';
-import { NavController, NavParams } from 'ionic-angular';
+import { NavController, NavParams, ToastController, LoadingController } from 'ionic-angular';
 import firebase from 'firebase';
 import moment from 'moment';
+import { LoginPage } from '../login/login';
 
 @Component({
   selector: 'page-feed',
@@ -9,29 +10,106 @@ import moment from 'moment';
 })
 export class FeedPage {
 
-  text: string= "";
-  posts: any[]=[];
+  text: string = "";
+  posts: any[] = [];
+  pageSize: number = 10;
+  cursor: any;
+  infiniteEvent: any;
 
-  constructor(public navCtrl: NavController, public navParams: NavParams) {
+  constructor(public navCtrl: NavController, public navParams: NavParams, private loadingCtrl: LoadingController, private toastCtrl: ToastController) {
     this.getPosts();
   }
 
   getPosts() {
-    this.posts= [];
+    this.posts = [];
 
-    firebase.firestore().collection("posts").orderBy("created", "desc").get({
+    let loading = this.loadingCtrl.create({
+      content: "Loading feed..."
+    });
 
-    }).then((docs) => {
+    loading.present();
 
+    let query = firebase.firestore().collection("posts").orderBy("created", "desc").limit(this.pageSize);
+
+    // query.onSnapshot((snapshot) => {
+    //   let changeDocs= snapshot.docChanges();
+
+    //   changeDocs.forEach((change) => {
+
+    //     if(change.type == "added"){
+    //       //TODO
+    //     }
+
+    //     if(change.type == "modified") {
+    //       //TODO
+    //       console.log("Document with id " + change.doc.id + " has been modified");
+    //     }
+
+    //     if(change.type == "removed") {
+    //       //TODO
+    //     }
+
+
+    //   });
+
+    // });
+
+    query.get().then((docs) => {
+
+      //In foreach loop we push datas to posts array
       docs.forEach((doc) => {
         this.posts.push(doc);
       });
 
-      console.log(this.posts); 
+      loading.dismiss();
+
+      this.cursor = this.posts[this.posts.length - 1];
+
+      console.log(this.posts);
 
     }).catch((err) => {
       console.log(err);
     });
+  }
+
+  loadMorePosts(event) {
+
+    firebase.firestore().collection("posts").orderBy("created", "desc").startAfter(this.cursor).limit(this.pageSize).get()
+      .then((docs) => {
+
+        docs.forEach((doc) => {
+          this.posts.push(doc);
+        })
+
+        console.log(this.posts)
+
+        if (docs.size < this.pageSize) {
+          // all documents have been loaded
+          event.enable(false);
+          this.infiniteEvent = event;
+        } else {
+          event.complete();
+          this.cursor = this.posts[this.posts.length - 1];
+        }
+
+      }).catch((err) => {
+        console.log(err)
+      })
+
+  }
+
+  refresh(event) {
+
+    this.posts = [];
+
+    this.getPosts();
+
+    if (this.infiniteEvent) {
+      this.infiniteEvent.enable(true);
+    }
+
+    event.complete();
+
   }
 
   post() {
@@ -41,15 +119,36 @@ export class FeedPage {
       owner: firebase.auth().currentUser.uid,
       owner_name: firebase.auth().currentUser.displayName
     }).then((doc) => {
+
       console.log(doc);
+
+      this.text = "";
+
+      let toast = this.toastCtrl.create({
+        message: "Your post has been created successfully",
+        duration: 3000
+      }).present();
+
       this.getPosts();
-    }).catch((err)=>{
+
+    }).catch((err) => {
       console.log(err);
     });
   }
 
   ago(time) {
-    let difference= moment(time).diff(moment());
+    let difference = moment(time).diff(moment());
     return moment.duration(difference).humanize();
+  }
+
+  logout() {
+    firebase.auth().signOut().then(() => {
+      let toast= this.toastCtrl.create({
+        message: "You have been logged out successfully",
+        duration: 3000
+      }).present();
+
+      this.navCtrl.setRoot(LoginPage);
+    });
   }
 }

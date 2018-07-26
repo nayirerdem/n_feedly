@@ -3,7 +3,7 @@
   <ion-navbar color="danger">
     <ion-title>Your Feed</ion-title>
     <ion-buttons end>
-      <button ion-button icon-only clear>
+      <button ion-button icon-only clear (click)="logout()">
         <ion-icon name="log-out"></ion-icon>
       </button>
     </ion-buttons>
@@ -24,6 +24,10 @@
       <ion-icon name="send"></ion-icon>
     </button>
   </ion-row>
+
+  <ion-refresher (ionRefresh)="refresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
 
   <ion-card *ngFor="let post of posts">
 
@@ -58,4 +62,9 @@
 
     </ion-row> 
   </ion-card>
+
+  <ion-infinite-scroll (ionInfinite)="loadMorePosts($event)">
+    <ion-infinite-scroll-content></ion-infinite-scroll-content>
+  </ion-infinite-scroll>
+
 </ion-content>
